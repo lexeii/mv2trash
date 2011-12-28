@@ -1,0 +1,33 @@
+Move file to trash
+
+Comply with The FreeDesktop.org Trash specification ver. 0.7
+http://www.freedesktop.org/wiki/Specifications/trash-spec
+http://www.ramendik.ru/docs/trashspec.html
+
+using code of http://zenway.ru/page/trash-in-console
+              http://www.nesono.com/node/296
+              https://bbs.archlinux.org/viewtopic.php?id=38712
+
+author - Lexeii, 2011 al.bobylev@gmail.com
+
+
+USING: this_script_name "file_to_delete (possible with spaces)"
+
+examples (there is 'trash' is this script name):
+
+1) file name can be relative and contain spaces
+   (don't forget to escape the spaces if you run script from commandline
+    instead of from a script)
+
+   filename="./trash spec.html"; trash "$filename"
+or trash ./trash\ spec.html
+
+2) remove file from home folder to home trash
+
+   trash ~/foo.bar
+
+3) remove file from mounted usb-flash will move file to usb-flash trash
+
+   trash /media/Transcend/foo.bar
+or cd /media/Transcend; trash ./foo.bar
+

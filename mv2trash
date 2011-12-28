@@ -1,0 +1,130 @@
+#!/bin/bash
+# Delete (only) to trash function
+# Comply with The FreeDesktop.org Trash specification ver. 0.7
+# author - Lexeii, 2011
+
+
+# we are using only one parameter - the file name to trash (not list of files)
+if [ "$1" ]
+then
+	# get the full file name ($name) from $1 (that may be relative)
+	dirName=$(dirname "$1")
+	cd "$dirName"
+	path=$(pwd)
+	file=$(basename "$1")
+	if [ "$path" = "/" ]
+	then
+		name="/$file"
+	else
+		name="$path/$file"
+	fi
+
+
+	# define the "root" folder $topdir
+	topdirs=$(mount | grep '^/' | awk 'length($3)>1 {print $3}')
+	for topdir in $topdirs
+	do
+		if [ $(echo "$name" | grep -c "^$topdir") -eq "1" ]; then break; fi
+		topdir="/"
+	done
+
+
+	# define path to home trash (failsafe)
+	if [ "x$XDG_DATA_HOME" = "x" ]
+	then
+		XDG_DATA_HOME="${HOME}/.local/share"
+	fi
+	homeTrash="${XDG_DATA_HOME}/Trash/"
+
+
+	# search for trash folder
+	if [ "$topdir" = "/" ]
+	then
+		trash=""
+	else
+		# (1) search for $topdir/.Trash/
+		if [ ! -h "$topdir/.Trash" -a -d "$topdir/.Trash" ]
+		then
+			trash="$topdir/.Trash/$UID"
+			# try to create user's sub-trash
+			mkdir -p "$trash"
+			if [ "$?" != "0" ]
+			then
+				# can't using user's sub-trash
+				trash=""
+			else
+				mkdir -p "$trash/"{info,files}
+				if [ "$?" != "0" ]
+				then
+					trash=""
+				fi
+			fi
+		fi
+
+		# (2) search for $topdir/.Trash-$uid
+		if [ "x$trash" = "x" ]
+		then
+			trash="$topdir/.Trash-$UID"
+			mkdir -p "$trash"
+			if [ "$?" != "0" ]
+			then
+				# can't using user's sub-trash
+				trash=""
+			else
+				mkdir -p "$trash/"{info,files}
+				if [ "$?" != "0" ]
+				then
+					trash=""
+				fi
+			fi
+		fi
+	fi
+
+
+	# using home trash (failsafe)
+	if [ "x$trash" = "x" ]
+	then
+		trash="$homeTrash"
+		# silent make trash subdirs if they not exist
+		mkdir -p "$trash/"{info,files}
+	fi
+
+
+	# check available free space (90 %)
+	# when move file from mounted partition to home trash
+	if [ "$topdir" != '/' -a "$trash" = "$homeTrash" ]
+	then
+		spaceFree=$(df $HOME | tail -n 1 | awk '{print $4}')
+		spaceAvail=$(expr "$spaceFree" / 10 \* 9)
+		fileSize=$(ls -l "$name" | awk '{print $5}')
+		if [ "$fileSize" -gt "$spaceAvail" ]
+		then
+			exit 1
+		fi
+	fi
+
+
+	# making unique filename for trash
+	destName="$file"
+	counter="2"
+	# file name without extension, with dot at end
+	file1=$(echo "$file" | awk 'BEGIN{FS=".";ORS="."}{for(i=1;i<NF;i++)print $i}')
+	# extension
+	file2=$(echo "$file" | awk 'BEGIN{FS="."}{print $NF}')
+
+	while [ -e "${trash}/info/${destName}.trashinfo" ]
+	do
+		destName="${file1}${counter}.${file2}"
+		counter=$(expr "$counter" + 1)
+	done
+	
+	infoname="${trash}/info/${destName}.trashinfo"
+	touch "$infoname"
+
+	echo -e "[Trash Info]\nPath=$name\nDeletionDate=$(date +%Y-%m-%dT%H:%M:%S)" >> "$infoname"
+	mv "$name" "${trash}/files/${destName}"
+	echo "File moved from $name to ${trash}/files/${destName}"
+
+fi
+exit 0
+
